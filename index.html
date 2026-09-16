@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f0efec" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#242422" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>東京 天気予報 比較</title>
+<style>
+:root{
+  color-scheme:light;
+  --bg:#f6f6f4; --surface:#fcfcfb; --surface-2:#f0efec; --line:#dedcd6;
+  --text:#0b0b0b; --text-2:#52514e; --text-3:#8a8880;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s6:#008300; --s7:#4a3aa7; --s8:#e34948;
+  --seq1:#cde2fb; --seq2:#9ec5f4; --seq3:#6da7ec; --seq4:#3987e5; --seq5:#1c5cab;
+  --accent:#2a78d6;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    color-scheme:dark;
+    --bg:#131312; --surface:#1a1a19; --surface-2:#242422; --line:#3a3936;
+    --text:#ffffff; --text-2:#c3c2b7; --text-3:#8d8c85;
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767;
+    --seq1:#184f95; --seq2:#1c5cab; --seq3:#256abf; --seq4:#3987e5; --seq5:#86b6ef;
+    --accent:#3987e5;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:"Segoe UI","Yu Gothic UI","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;font-size:14px;line-height:1.5}
+.wrap{max-width:1400px;margin:0 auto;padding:16px 16px 48px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 16px;margin-bottom:12px}
+header h1{font-size:20px;margin:0}
+header .meta{color:var(--text-2);font-size:12px}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:6px;padding:4px 12px}
+button:hover{background:var(--surface-2)}
+button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
+.toolbar .grp{display:flex;gap:4px;flex-wrap:wrap}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:16px}
+.card h2{font-size:15px;margin:0 0 8px}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;white-space:nowrap}
+th,td{border:1px solid var(--line);padding:4px 6px;text-align:center;vertical-align:middle}
+th{background:var(--surface-2);font-weight:600;font-size:12px}
+th.src{text-align:left;position:sticky;left:0;background:var(--surface-2);z-index:1;min-width:150px}
+td.src{text-align:left;position:sticky;left:0;background:var(--surface);z-index:1}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+.src small{display:block;color:var(--text-3);font-size:11px;line-height:1.2}
+.ico{font-size:22px;line-height:1.1}
+.wk .ico{font-size:26px}
+.lbl{font-size:11px;color:var(--text-2);max-width:120px;white-space:normal;line-height:1.2}
+.tmp{font-size:13px}
+.tmp .hi{color:var(--s8);font-weight:600}
+.tmp .lo{color:var(--s1);font-weight:600}
+.pop{font-size:11px;color:var(--text-2)}
+.pop b{color:var(--s1)}
+.mm{font-size:11px;color:var(--text-3)}
+.na{color:var(--text-3)}
+tr.spread td{background:var(--surface-2);font-size:12px}
+tr.spread td.src{font-weight:600}
+.chip{display:inline-block;padding:1px 6px;border-radius:4px;font-size:11px;color:#fff}
+th.day{min-width:110px}
+th.day .wd{display:block;font-size:11px;color:var(--text-2)}
+th.day.sat,.sat{color:var(--s1)} th.day.sun,.sun{color:var(--s8)}
+.hr th.h{min-width:52px;font-size:11px}
+.hr td{padding:3px 2px;font-size:12px}
+.hr .ico{font-size:18px}
+.hr .pop{font-size:10px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin:6px 0;font-size:12px}
+.legend label{display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
+.legend label.off{opacity:.4}
+.legend .sw{width:18px;height:3px;border-radius:2px}
+.chart{width:100%;height:280px;display:block}
+.chart text{font-size:11px;fill:var(--text-2)}
+.chart .grid{stroke:var(--line);stroke-width:1}
+.chart .ln{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.chart .band{fill:var(--accent);opacity:.08}
+.chart .xh{stroke:var(--text-3);stroke-dasharray:3 3}
+.tip{position:fixed;pointer-events:none;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,.15);display:none;z-index:10;min-width:150px}
+.tip .t{font-weight:600;margin-bottom:2px}
+.tip .r{display:flex;justify-content:space-between;gap:12px}
+.tip .r i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
+.status{font-size:12px;color:var(--text-2);margin:4px 0}
+.err{color:var(--s8)}
+.note{font-size:12px;color:var(--text-2);line-height:1.6}
+.note ul{margin:4px 0;padding-left:18px}
+.summary{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.summary .d{border:1px solid var(--line);border-radius:8px;padding:8px;background:var(--surface);cursor:pointer}
+.summary .d:hover{background:var(--surface-2)}
+.summary .d.today{border-color:var(--accent)}
+.summary .d .dt{font-size:12px;color:var(--text-2)}
+.summary .d .big{font-size:26px;line-height:1.2}
+.summary .d .agree{font-size:12px}
+.summary .d .rng{font-size:12px;color:var(--text-2)}
+.bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin:4px 0 6px}
+.bar i{display:block;height:100%;background:var(--s1)}
+@media (max-width:600px){ .wrap{padding:12px} th.day{min-width:90px} }
+
+/* ===== ウィジェット表示（?widget=1） ===== */
+#widget{display:none}
+body.widget{background:var(--surface);overflow:hidden;user-select:none}
+body.widget .wrap,body.widget .tip{display:none}
+body.widget #widget{display:flex;flex-direction:column;height:100vh}
+#widget .wbar{display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--surface-2);border-bottom:1px solid var(--line);-webkit-app-region:drag;font-size:12px}
+#widget .wbar b{font-size:13px}
+#widget .wbar .sp{flex:1;color:var(--text-3);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#widget .wbar button{-webkit-app-region:no-drag;padding:1px 7px;font-size:12px;line-height:1.5}
+#widget .wbody{flex:1;overflow:auto;padding:8px}
+#widget .wday{display:grid;grid-template-columns:44px 40px 1fr;gap:2px 8px;align-items:center;padding:6px 4px;border-bottom:1px solid var(--line)}
+#widget .wday:first-child{background:color-mix(in srgb,var(--accent) 8%,transparent);border-radius:6px}
+#widget .wday .dt{font-size:12px;line-height:1.3}
+#widget .wday .dt b{display:block;font-size:14px}
+#widget .wday .big{font-size:28px;text-align:center;line-height:1}
+#widget .wday .inf{font-size:12px;line-height:1.35}
+#widget .wday .inf .hi{color:var(--s8);font-weight:600}
+#widget .wday .inf .lo{color:var(--s1);font-weight:600}
+#widget .wday .inf .pp{color:var(--s1);font-weight:600}
+#widget .wday .bar{margin:3px 0 0}
+#widget .wday .mm{font-size:11px}
+#widget h3{font-size:11px;color:var(--text-2);margin:10px 0 4px;font-weight:600}
+#widget .strip{display:grid;grid-template-columns:repeat(8,1fr);gap:2px;text-align:center}
+#widget .strip .c{border:1px solid var(--line);border-radius:5px;padding:3px 0;font-size:10px;line-height:1.3;color:var(--text-2)}
+#widget .strip .c.now{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent)}
+#widget .strip .c .i{font-size:16px;line-height:1.1}
+#widget .strip .c .t{color:var(--text);font-size:11px}
+#widget .strip .c .p{color:var(--s1);font-size:9px;white-space:nowrap;letter-spacing:-.3px}
+#widget .wk4{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;text-align:center}
+#widget .wk4 .c{border:1px solid var(--line);border-radius:6px;padding:4px 2px;font-size:11px;line-height:1.35;color:var(--text-2)}
+#widget .wk4 .c .i{font-size:22px;line-height:1.1}
+#widget .wk4 .c .hi{color:var(--s8);font-weight:600} #widget .wk4 .c .lo{color:var(--s1);font-weight:600}
+#widget .wk4 .c .p{color:var(--s1);font-size:10px}
+#widget .wfoot{font-size:10px;color:var(--text-3);padding:4px 8px;border-top:1px solid var(--line);display:flex;justify-content:space-between}
+#widget .wfoot .err{font-size:10px}
+/* スマホアプリ */
+.mobile-only{display:none}
+body.mobile .mobile-only{display:inline-block}
+body.mobile #wclose{display:none}
+body.mobile #widget .wbar{padding:10px 10px;font-size:13px}
+body.mobile #widget .wbar button{padding:4px 12px;font-size:15px}
+body.mobile #widget .wday .inf{font-size:13px}
+body.mobile #widget .wday .dt{font-size:13px}
+body.mobile #widget .wbody{padding:10px}
+body.mobile .card{padding:10px}
+body.mobile table{font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>東京 天気予報 比較</h1>
+  <span class="meta" id="meta">読み込み中…</span>
+  <button id="reload">再読み込み</button><button id="tocompact" class="mobile-only">簡易表示</button>
+</header>
+<div class="status" id="status"></div>
+
+<div class="card">
+  <h2>一致度（各日・8ソース）</h2>
+  <div class="summary" id="summary"></div>
+</div>
+
+<div class="card wk">
+  <h2>週間予報</h2>
+  <div class="scroll"><table id="weekly"></table></div>
+</div>
+
+<div class="card hr">
+  <h2>時間ごと</h2>
+  <div class="toolbar">
+    <div class="grp" id="dayBtns"></div>
+    <div class="grp"><button data-step="1">1時間</button><button data-step="3" class="on">3時間</button></div>
+  </div>
+  <div class="scroll"><table id="hourly"></table></div>
+</div>
+
+<div class="card">
+  <h2>気温の推移（選択日）</h2>
+  <div class="legend" id="legend"></div>
+  <svg class="chart" id="chartT"></svg>
+</div>
+<div class="card">
+  <h2>降水確率の推移（選択日）<span class="mm" style="font-weight:400">　凡例は上の気温グラフと共通</span></h2>
+  <svg class="chart" id="chartP"></svg>
+</div>
+
+<div class="card note">
+  <h2>ソースについて</h2>
+  <ul>
+    <li><b>気象庁 公式</b>：気象庁の発表そのもの（東京地方／東京）。tenki.jp・Yahoo!天気・NHK の週間予報はこれが元。時間ごとの気温は公式JSONに無いため降水確率（6時間ごと）のみ。</li>
+    <li><b>JMA MSM/GSM・ECMWF・GFS・ICON・UKMO・best_match</b>：Open-Meteo 経由の各国数値予報モデルの生出力。ウェザーニュース等の独自予報も、こうしたモデルを元に作られている。JMA モデルには降水確率が無い。</li>
+    <li><b>Yr (MET Norway)</b>：ノルウェー気象研究所（ECMWF ベース）。48時間以降は6時間刻み。</li>
+    <li>「ばらつき」行は各ソースの最大−最小。幅が大きいほど予報が割れている＝どのサイトを見ても信用度が低い時間帯。</li>
+  </ul>
+</div>
+</div>
+<div class="tip" id="tip"></div>
+
+<div id="widget">
+  <div class="wbar"><b>東京 天気</b><span class="sp" id="wmeta"></span>
+    <button id="wreload" title="再取得">↻</button><button id="wfull" title="全体表示">⤢</button><button id="wclose" title="閉じる">✕</button></div>
+  <div class="wbody"><div id="wdays"></div><h3 id="wstripTitle"></h3><div class="strip" id="wstrip"></div><h3>4日目以降</h3><div class="wk4" id="wwk4"></div></div>
+  <div class="wfoot"><span>8ソース比較</span><span id="wstatus"></span></div>
+</div>
+
+<script>
+'use strict';
+// ===== 設定（東京） =====
+const LAT=35.69, LON=139.69, JMA_OFFICE='130000', JMA_AREA='130010', JMA_TEMP_AREA='44132';
+const DAYS=7;
+const OM_MODELS=[
+  {id:'jma_seamless', name:'JMA MSM/GSM', sub:'気象庁モデル (Open-Meteo)', color:'--s2'},
+  {id:'ecmwf_ifs025', name:'ECMWF', sub:'欧州中期予報センター', color:'--s3'},
+  {id:'gfs_seamless', name:'GFS', sub:'米国 NOAA', color:'--s4'},
+  {id:'icon_seamless', name:'ICON', sub:'ドイツ DWD', color:'--s5'},
+  {id:'ukmo_seamless', name:'UKMO', sub:'英国気象庁', color:'--s6'},
+  {id:'best_match', name:'Open-Meteo best', sub:'地域最適モデル', color:'--s8'},
+];
+const SOURCES=[
+  {id:'jma', name:'気象庁 公式', sub:'東京地方・東京', color:'--s1', hourlyTemp:false},
+  ...OM_MODELS.slice(0,5).map(m=>({id:m.id,name:m.name,sub:m.sub,color:m.color,hourlyTemp:true})),
+  {id:'met', name:'Yr (MET Norway)', sub:'ノルウェー気象研究所', color:'--s7', hourlyTemp:true},
+  {id:'best_match', name:'Open-Meteo best', sub:'地域最適モデル', color:'--s8', hourlyTemp:true},
+];
+
+// ===== 天気アイコン =====
+const ICON={sun:'☀️',suncloud:'⛅',cloud:'☁️',cloudrain:'🌦️',rain:'🌧️',snow:'🌨️',thunder:'⛈️',fog:'🌫️'};
+const CLS_JA={sun:'晴れ',suncloud:'晴れ時々曇',cloud:'曇り',cloudrain:'曇り一時雨',rain:'雨',snow:'雪',thunder:'雷雨',fog:'霧'};
+const RAINY=new Set(['cloudrain','rain','snow','thunder']);
+function wmoClass(c){
+  if(c==null)return null;
+  if(c===0||c===1)return 'sun'; if(c===2)return 'suncloud'; if(c===3)return 'cloud';
+  if(c===45||c===48)return 'fog'; if(c>=51&&c<=67)return 'rain'; if(c>=71&&c<=77)return 'snow';
+  if(c>=80&&c<=82)return 'rain'; if(c===85||c===86)return 'snow'; if(c>=95)return 'thunder'; return 'cloud';
+}
+const WMO_JA={0:'快晴',1:'晴れ',2:'晴れ時々曇',3:'曇り',45:'霧',48:'霧',51:'霧雨',53:'霧雨',55:'霧雨',56:'着氷性霧雨',57:'着氷性霧雨',61:'小雨',63:'雨',65:'大雨',66:'着氷性雨',67:'着氷性雨',71:'小雪',73:'雪',75:'大雪',77:'霧雪',80:'にわか雨',81:'にわか雨',82:'激しいにわか雨',85:'にわか雪',86:'にわか雪',95:'雷雨',96:'雷雨(雹)',99:'雷雨(雹)'};
+const JMA_JA={100:'晴',101:'晴時々曇',102:'晴一時雨',103:'晴時々雨',104:'晴一時雪',105:'晴時々雪',106:'晴一時雨か雪',107:'晴時々雨か雪',108:'晴一時雨か雷雨',110:'晴後時々曇',111:'晴後曇',112:'晴後一時雨',113:'晴後時々雨',114:'晴後雨',115:'晴後一時雪',116:'晴後時々雪',117:'晴後雪',118:'晴後雨か雪',119:'晴後雨か雷雨',120:'晴朝夕一時雨',121:'晴朝の内一時雨',122:'晴夕方一時雨',123:'晴山沿い雷雨',124:'晴山沿い雪',125:'晴午後は雷雨',126:'晴昼頃から雨',127:'晴夕方から雨',128:'晴夜は雨',130:'朝の内霧後晴',131:'晴明け方霧',132:'晴朝夕曇',140:'晴時々雨で雷を伴う',160:'晴一時雪か雨',170:'晴時々雪か雨',181:'晴後雪か雨',200:'曇',201:'曇時々晴',202:'曇一時雨',203:'曇時々雨',204:'曇一時雪',205:'曇時々雪',206:'曇一時雨か雪',207:'曇時々雨か雪',208:'曇一時雨か雷雨',209:'霧',210:'曇後時々晴',211:'曇後晴',212:'曇後一時雨',213:'曇後時々雨',214:'曇後雨',215:'曇後一時雪',216:'曇後時々雪',217:'曇後雪',218:'曇後雨か雪',219:'曇後雨か雷雨',220:'曇朝夕一時雨',221:'曇朝の内一時雨',222:'曇夕方一時雨',223:'曇日中時々晴',224:'曇昼頃から雨',225:'曇夕方から雨',226:'曇夜は雨',228:'曇昼頃から雪',229:'曇夕方から雪',230:'曇夜は雪',231:'曇海上海岸は霧か霧雨',240:'曇時々雨で雷を伴う',250:'曇時々雪で雷を伴う',260:'曇一時雪か雨',270:'曇時々雪か雨',281:'曇後雪か雨',300:'雨',301:'雨時々晴',302:'雨時々止む',303:'雨時々雪',304:'雨か雪',306:'大雨',308:'雨で暴風を伴う',309:'雨一時雪',311:'雨後晴',313:'雨後曇',314:'雨後時々雪',315:'雨後雪',316:'雨か雪後晴',317:'雨か雪後曇',320:'朝の内雨後晴',321:'朝の内雨後曇',322:'雨朝晩一時雪',323:'雨昼頃から晴',324:'雨夕方から晴',325:'雨夜は晴',326:'雨夕方から雪',327:'雨夜は雪',328:'雨一時強く降る',329:'雨一時みぞれ',340:'雪か雨',350:'雨で雷を伴う',361:'雪か雨後晴',371:'雪か雨後曇',400:'雪',401:'雪時々晴',402:'雪時々止む',403:'雪時々雨',405:'大雪',406:'風雪強い',407:'暴風雪',409:'雪一時雨',411:'雪後晴',413:'雪後曇',414:'雪後雨',420:'朝の内雪後晴',421:'朝の内雪後曇',422:'雪昼頃から雨',423:'雪夕方から雨',425:'雪一時強く降る',426:'雪後みぞれ',427:'雪一時みぞれ',450:'雪で雷を伴う'};
+function jmaClass(code){
+  if(!code)return null; const c=+code, l=JMA_JA[c]||'';
+  if(c===209)return 'fog'; if(l.includes('雷'))return 'thunder';
+  const d=Math.floor(c/100);
+  if((d===1||d===2)&&/[雨雪]/.test(l))return 'cloudrain';
+  if(d===1)return c===100?'sun':'suncloud';
+  if(d===2)return l.includes('晴')?'suncloud':'cloud';
+  if(d===3)return 'rain'; if(d===4)return 'snow'; return 'cloud';
+}
+function metClass(sym){
+  if(!sym)return null; const s=sym.replace(/_(day|night|polartwilight)$/,'');
+  if(s==='clearsky')return 'sun'; if(s==='fair'||s==='partlycloudy')return 'suncloud'; if(s==='cloudy')return 'cloud';
+  if(s==='fog')return 'fog'; if(s.includes('thunder'))return 'thunder'; if(s.includes('snow')||s.includes('sleet'))return 'snow';
+  if(s.includes('rain'))return 'rain'; return 'cloud';
+}
+const MET_JA={clearsky:'快晴',fair:'晴れ',partlycloudy:'晴れ時々曇',cloudy:'曇り',fog:'霧',lightrain:'小雨',rain:'雨',heavyrain:'大雨',lightrainshowers:'にわか雨',rainshowers:'にわか雨',heavyrainshowers:'激しいにわか雨',lightsnow:'小雪',snow:'雪',heavysnow:'大雪',sleet:'みぞれ',lightsleet:'みぞれ',heavysleet:'みぞれ'};
+function metLabel(sym){ if(!sym)return ''; const s=sym.replace(/_(day|night|polartwilight)$/,''); if(MET_JA[s])return MET_JA[s]; if(s.includes('thunder'))return '雷雨'; return s; }
+const SEVERITY={sun:0,suncloud:1,cloud:2,fog:2,cloudrain:3,rain:4,snow:4,thunder:5};
+
+// ===== 日時ユーティリティ（全てJST） =====
+const WD=['日','月','火','水','木','金','土'];
+function jstNow(){ return new Date(Date.now()+9*3600e3); }
+function dateKey(d){ return d.toISOString().slice(0,10); }
+function utcToJstKey(iso){ const d=new Date(new Date(iso).getTime()+9*3600e3); return d.toISOString().slice(0,13); } // YYYY-MM-DDTHH
+function dayList(){ const t=jstNow(); t.setUTCHours(0,0,0,0); return Array.from({length:DAYS},(_,i)=>dateKey(new Date(t.getTime()+i*86400e3))); }
+function fmtDay(k){ const d=new Date(k+'T00:00:00Z'); return `${d.getUTCMonth()+1}/${d.getUTCDate()}`; }
+function wdOf(k){ return new Date(k+'T00:00:00Z').getUTCDay(); }
+
+// ===== データ取得 =====
+// data[src] = { daily:{dateKey:{cls,label,hi,lo,pop,mm,rel}}, hourly:{'YYYY-MM-DDTHH':{cls,label,t,pop,mm}}, popBlocks:[{from,to,pop}], issued }
+async function fetchJMA(){
+  const r=await fetch(`https://www.jma.go.jp/bosai/forecast/data/forecast/${JMA_OFFICE}.json`,{cache:'no-store'});
+  if(!r.ok)throw new Error('JMA '+r.status);
+  const j=await r.json(); const out={daily:{},hourly:{},popBlocks:[],issued:j[0].reportDatetime};
+  const findArea=(ts,code)=>ts.areas.find(a=>a.area.code===code);
+  // 短期（今日・明日・明後日）
+  const s=j[0].timeSeries;
+  const w=findArea(s[0],JMA_AREA);
+  s[0].timeDefines.forEach((t,i)=>{ const k=t.slice(0,10); out.daily[k]=Object.assign(out.daily[k]||{},{cls:jmaClass(w.weatherCodes[i]),label:JMA_JA[+w.weatherCodes[i]]||w.weatherCodes[i],text:w.weathers?.[i]||''}); });
+  const p=findArea(s[1],JMA_AREA);
+  s[1].timeDefines.forEach((t,i)=>{ const from=new Date(t).getTime(); out.popBlocks.push({from,to:from+6*3600e3,pop:+p.pops[i]}); const k=t.slice(0,10); const d=out.daily[k]=out.daily[k]||{}; d.pop=Math.max(d.pop??-1,+p.pops[i]); });
+  const tp=findArea(s[2],JMA_TEMP_AREA);
+  if(tp){ const byDate={}; s[2].timeDefines.forEach((t,i)=>{ const k=t.slice(0,10); (byDate[k]=byDate[k]||[]).push(+tp.temps[i]); });
+    for(const k in byDate){ const v=byDate[k]; const d=out.daily[k]=out.daily[k]||{}; if(v.length>=2){ d.lo=v[0]; d.hi=v[1]; if(d.lo===d.hi) d.lo=null; } else { d.hi=v[0]; } } }
+  // 週間
+  if(j[1]){ const ws=j[1].timeSeries; const ww=findArea(ws[0],JMA_AREA); const wt=findArea(ws[1],JMA_TEMP_AREA);
+    ws[0].timeDefines.forEach((t,i)=>{ const k=t.slice(0,10); const d=out.daily[k]=out.daily[k]||{};
+      if(d.cls==null && ww.weatherCodes[i]){ d.cls=jmaClass(ww.weatherCodes[i]); d.label=JMA_JA[+ww.weatherCodes[i]]||ww.weatherCodes[i]; }
+      if(d.pop==null && ww.pops[i]!=='') d.pop=+ww.pops[i];
+      if(ww.reliabilities?.[i]) d.rel=ww.reliabilities[i];
+      if(wt){ if(d.hi==null && wt.tempsMax[i]!=='') d.hi=+wt.tempsMax[i]; if(d.lo==null && wt.tempsMin[i]!=='') d.lo=+wt.tempsMin[i]; }
+    }); }
+  return out;
+}
+async function fetchOpenMeteo(){
+  const models=OM_MODELS.map(m=>m.id).join(',');
+  const u=`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&timezone=Asia%2FTokyo&forecast_days=${DAYS}&models=${models}`+
+    `&hourly=temperature_2m,precipitation_probability,precipitation,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max`;
+  const r=await fetch(u,{cache:'no-store'}); if(!r.ok)throw new Error('Open-Meteo '+r.status);
+  const j=await r.json(); const res={};
+  for(const m of OM_MODELS){ const o={daily:{},hourly:{},popBlocks:[]};
+    j.daily.time.forEach((k,i)=>{ const g=n=>j.daily[`${n}_${m.id}`]?.[i]??null; const wc=g('weather_code');
+      o.daily[k]={cls:wmoClass(wc),label:WMO_JA[wc]||'',hi:g('temperature_2m_max'),lo:g('temperature_2m_min'),mm:g('precipitation_sum'),pop:g('precipitation_probability_max')}; });
+    j.hourly.time.forEach((t,i)=>{ const g=n=>j.hourly[`${n}_${m.id}`]?.[i]??null; const wc=g('weather_code');
+      o.hourly[t.slice(0,13)]={cls:wmoClass(wc),label:WMO_JA[wc]||'',t:g('temperature_2m'),pop:g('precipitation_probability'),mm:g('precipitation')}; });
+    res[m.id]=o; }
+  return res;
+}
+async function fetchMET(){
+  const r=await fetch(`https://api.met.no/weatherapi/locationforecast/2.0/complete?lat=${LAT}&lon=${LON}`,{cache:'no-store'});
+  if(!r.ok)throw new Error('MET '+r.status);
+  const j=await r.json(); const o={daily:{},hourly:{},popBlocks:[],issued:j.properties.meta.updated_at};
+  const agg={};
+  for(const e of j.properties.timeseries){ const k=utcToJstKey(e.time), dk=k.slice(0,10), d=e.data;
+    const n1=d.next_1_hours, n6=d.next_6_hours, nx=n1||n6;
+    o.hourly[k]={cls:metClass(nx?.summary?.symbol_code),label:metLabel(nx?.summary?.symbol_code),t:d.instant?.details?.air_temperature??null,
+      pop:nx?.details?.probability_of_precipitation??null,mm:n1?.details?.precipitation_amount??null};
+    const a=agg[dk]=agg[dk]||{t:[],mm:0,cls:[],pop:[]};
+    if(d.instant?.details?.air_temperature!=null)a.t.push(d.instant.details.air_temperature);
+    if(n6?.details){ if(n6.details.air_temperature_max!=null)a.t.push(n6.details.air_temperature_max); if(n6.details.air_temperature_min!=null)a.t.push(n6.details.air_temperature_min); }
+    const h=+k.slice(11,13);
+    if(n1)a.mm+=n1.details.precipitation_amount||0; else if(n6&&h%6===0)a.mm+=n6.details.precipitation_amount||0;
+    if(n6&&h>=6&&h<=18)a.cls.push(n6.summary.symbol_code);
+    if(nx?.details?.probability_of_precipitation!=null)a.pop.push(nx.details.probability_of_precipitation);
+  }
+  for(const dk in agg){ const a=agg[dk]; let best=null,bs=-1; for(const s of a.cls){ const c=metClass(s); if(SEVERITY[c]>bs){bs=SEVERITY[c];best=s;} }
+    o.daily[dk]={cls:metClass(best),label:metLabel(best),hi:a.t.length?Math.max(...a.t):null,lo:a.t.length?Math.min(...a.t):null,mm:Math.round(a.mm*10)/10,pop:a.pop.length?Math.max(...a.pop):null}; }
+  return o;
+}
+
+// ===== 状態 =====
+let DATA={}, ERRORS={}, selDay=null, step=3, hidden=new Set();
+const $=s=>document.querySelector(s);
+const r1=v=>v==null?null:Math.round(v*10)/10;
+const r0=v=>v==null?null:Math.round(v);
+
+async function load(){
+  $('#status').textContent='取得中…'; ERRORS={};
+  const [a,b,c]=await Promise.allSettled([fetchJMA(),fetchOpenMeteo(),fetchMET()]);
+  DATA={};
+  if(a.status==='fulfilled')DATA.jma=a.value; else ERRORS['気象庁']=a.reason.message;
+  if(b.status==='fulfilled')Object.assign(DATA,b.value); else ERRORS['Open-Meteo']=b.reason.message;
+  if(c.status==='fulfilled')DATA.met=c.value; else ERRORS['MET Norway']=c.reason.message;
+  const fetchedAt=new Date().toISOString(); lastLoad=Date.now();
+  if(Object.keys(DATA).length){ try{localStorage.setItem('tokyo_wx_cmp',JSON.stringify({DATA,fetchedAt}));}catch(e){} }
+  else { try{ const c=JSON.parse(localStorage.getItem('tokyo_wx_cmp')); if(c){DATA=c.DATA; $('#status').innerHTML='<span class="err">取得失敗のためキャッシュ表示：'+new Date(c.fetchedAt).toLocaleString('ja-JP')+'</span>'; $('#meta').textContent=''; renderAll(); return;} }catch(e){} }
+  const errs=Object.entries(ERRORS).map(([k,v])=>`${k}: ${v}`).join(' / ');
+  $('#status').innerHTML=(errs?`<span class="err">一部取得失敗 — ${errs}</span>`:'');
+  $('#meta').textContent=`取得 ${new Date(fetchedAt).toLocaleString('ja-JP')}`+(DATA.jma?.issued?`／気象庁発表 ${new Date(DATA.jma.issued).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})}`:'');
+  renderAll();
+}
+
+function renderAll(){ const days=dayList(); if(!selDay||!days.includes(selDay))selDay=days[0]; if(compact){renderWidget(days);return;} renderSummary(days); renderWeekly(days); renderDayBtns(days); renderHourly(); renderLegend(); renderCharts(); }
+
+// ===== ウィジェット表示 =====
+const PARAMS=new URLSearchParams(location.search);
+const MOBILE=PARAMS.has('mobile');            // Android アプリ（WebView）: 簡易⇔詳細を切り替えられる
+let compact=PARAMS.has('widget')||MOBILE;     // 簡易（ウィジェット）表示か
+function setCompact(v){ compact=v; document.body.classList.toggle('widget',v); if(Object.keys(DATA).length)renderAll(); scrollTo(0,0); }
+function majority(cls){ const cnt={}; cls.forEach(c=>cnt[c]=(cnt[c]||0)+1); return Object.entries(cnt).sort((a,b)=>b[1]-a[1]||SEVERITY[b[0]]-SEVERITY[a[0]])[0]||null; }
+function rngTxt(a,f=Math.round){ if(!a.length)return '—'; const lo=f(Math.min(...a)),hi=f(Math.max(...a)); return lo===hi?`${lo}`:`${lo}〜${hi}`; }
+function renderWidget(days){
+  const el=$('#wdays'); let h='';
+  for(const k of days.slice(0,3)){ const cls=[],hi=[],lo=[],pop=[];
+    for(const s of SOURCES){ const d=DATA[s.id]?.daily?.[k]; if(!d)continue; if(d.cls)cls.push(d.cls); if(d.hi!=null)hi.push(d.hi); if(d.lo!=null)lo.push(d.lo); if(d.pop!=null)pop.push(d.pop); }
+    const n=cls.length, rainN=cls.filter(c=>RAINY.has(c)).length, top=majority(cls), wd=wdOf(k), jma=DATA.jma?.daily?.[k];
+    h+=`<div class="wday"><div class="dt"><b>${fmtDay(k)}<span class="${wd===0?'sun':wd===6?'sat':''}">(${WD[wd]})</span></b>${k===days[0]?'今日':k===days[1]?'明日':'明後日'}</div>
+      <div class="big">${top?ICON[top[0]]:'—'}</div>
+      <div class="inf"><div>${jma?.label?`気象庁: ${jma.label}`:top?CLS_JA[top[0]]:''}</div>
+        <div><span class="hi">${rngTxt(hi)}</span><span class="na"> / </span><span class="lo">${rngTxt(lo)}</span>℃　降水 <span class="pp">${pop.length?rngTxt(pop)+'%':'—'}</span></div>
+        <div class="mm">雨予想 ${rainN}/${n}${top&&top[1]<n?`（多数派 ${CLS_JA[top[0]]} ${top[1]}/${n}）`:''}</div><div class="bar"><i style="width:${n?rainN/n*100:0}%"></i></div></div></div>`; }
+  el.innerHTML=h;
+  // 今日の3時間ごと（今の時刻以降は今日、残りが少なければ明日へ続ける）
+  const nowH=jstNow().getUTCHours(); const cells=[]; let day=days[0], hh=Math.floor(nowH/3)*3;
+  while(cells.length<8){ cells.push({day,h:hh}); hh+=3; if(hh>=24){hh=0;day=days[days.indexOf(day)+1]||day;} }
+  $('#wstripTitle').textContent=`3時間ごと（${fmtDay(cells[0].day)} ${cells[0].h}時〜）`;
+  $('#wstrip').innerHTML=cells.map((c,i)=>{ const key=`${c.day}T${String(c.h).padStart(2,'0')}`; const cls=[],ts=[],ps=[];
+    for(const s of SOURCES){ if(s.id==='jma')continue; const d=DATA[s.id]?.hourly?.[key]; if(!d)continue; if(d.cls)cls.push(d.cls); if(d.t!=null)ts.push(d.t); if(d.pop!=null)ps.push(d.pop); }
+    const top=majority(cls);
+    return `<div class="c${i===0?' now':''}">${c.h===0&&i>0?fmtDay(c.day):c.h+'時'}<div class="i">${top?ICON[top[0]]:'—'}</div><div class="t">${rngTxt(ts)}</div><div class="p">${ps.length?rngTxt(ps)+'%':''}</div></div>`; }).join('');
+  $('#wwk4').innerHTML=days.slice(3).map(k=>{ const cls=[],hi=[],lo=[],pop=[];
+    for(const s of SOURCES){ const d=DATA[s.id]?.daily?.[k]; if(!d)continue; if(d.cls)cls.push(d.cls); if(d.hi!=null)hi.push(d.hi); if(d.lo!=null)lo.push(d.lo); if(d.pop!=null)pop.push(d.pop); }
+    const top=majority(cls), wd=wdOf(k), rainN=cls.filter(c=>RAINY.has(c)).length;
+    return `<div class="c">${fmtDay(k)}<span class="${wd===0?'sun':wd===6?'sat':''}">(${WD[wd]})</span><div class="i">${top?ICON[top[0]]:'—'}</div><div><span class="hi">${rngTxt(hi)}</span>/<span class="lo">${rngTxt(lo)}</span></div><div class="p">${pop.length?rngTxt(pop)+'%':'—'}</div><div>雨 ${rainN}/${cls.length}</div></div>`; }).join('');
+  $('#wmeta').textContent=$('#meta').textContent.replace('取得 ','').replace(/^\d+\/\d+\/\d+ /,'').replace(/:\d\d(?=／|$)/,'');
+  $('#wstatus').innerHTML=$('#status').innerHTML;
+}
+if(MOBILE)document.body.classList.add('mobile');
+if(compact){ document.body.classList.add('widget'); document.title='東京 天気ウィジェット';
+  $('#wreload').onclick=load;
+  $('#wfull').onclick=()=>{ if(window.widgetHost)window.widgetHost.openFull(); else if(MOBILE)setCompact(false); else open(location.pathname,'_blank'); };
+  $('#wclose').onclick=()=>{ if(window.widgetHost)window.widgetHost.close(); else close(); };
+  $('#tocompact').onclick=()=>setCompact(true);
+  setInterval(load,30*60*1000); }
+// 画面復帰時（スマホでアプリに戻った時など）に 10 分以上経っていれば再取得
+let lastLoad=Date.now(); document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&Date.now()-lastLoad>10*60*1000)load(); });
+
+function spreadChip(v,max,unit){ if(v==null)return '<span class="na">—</span>'; const i=Math.min(4,Math.floor(Math.min(1,v/max)*5)); const c=['--seq1','--seq2','--seq3','--seq4','--seq5'][i]; const dark=matchMedia('(prefers-color-scheme:dark)').matches; const fg=(dark?i<=3:i>=3)?'#fff':'#0b0b0b'; return `<span class="chip" style="background:var(${c});color:${fg}">±${v}${unit}</span>`; }
+
+function renderSummary(days){
+  const el=$('#summary'); el.innerHTML='';
+  for(const k of days){ const cls=[],hi=[],lo=[],pop=[];
+    for(const s of SOURCES){ const d=DATA[s.id]?.daily?.[k]; if(!d)continue; if(d.cls)cls.push(d.cls); if(d.hi!=null)hi.push(d.hi); if(d.lo!=null)lo.push(d.lo); if(d.pop!=null)pop.push(d.pop); }
+    const n=cls.length, rainN=cls.filter(c=>RAINY.has(c)).length;
+    const cnt={}; cls.forEach(c=>cnt[c]=(cnt[c]||0)+1); const top=Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0];
+    const rng=(a)=>a.length?`${Math.round(Math.min(...a))}〜${Math.round(Math.max(...a))}`:'—';
+    const d=document.createElement('div'); d.className='d'+(k===days[0]?' today':''); const wd=wdOf(k);
+    d.innerHTML=`<div class="dt">${fmtDay(k)}（<span class="${wd===0?'sun':wd===6?'sat':''}">${WD[wd]}</span>）${k===days[0]?'今日':''}</div>
+      <div class="big">${top?ICON[top[0]]:'—'} <span style="font-size:13px">${top?CLS_JA[top[0]]:''} ${top?top[1]+'/'+n:''}</span></div>
+      <div class="agree">雨予想 <b>${rainN}</b>/${n}</div><div class="bar"><i style="width:${n?rainN/n*100:0}%"></i></div>
+      <div class="rng">最高 ${rng(hi)}℃　最低 ${rng(lo)}℃</div><div class="rng">降水確率 ${pop.length?rng(pop)+'%':'—'}</div>`;
+    d.onclick=()=>{selDay=k;renderDayBtns(days);renderHourly();renderCharts();document.querySelector('.hr').scrollIntoView({behavior:'smooth'});};
+    el.appendChild(d); }
+}
+
+function renderWeekly(days){
+  const t=$('#weekly'); let h='<thead><tr><th class="src">ソース</th>';
+  for(const k of days){ const wd=wdOf(k); h+=`<th class="day ${wd===0?'sun':wd===6?'sat':''}" ${k===days[0]?'style="outline:2px solid var(--accent);outline-offset:-2px"':''}>${fmtDay(k)}<span class="wd">${WD[wd]}${k===days[0]?'・今日':''}</span></th>`; }
+  h+='</tr></thead><tbody>';
+  for(const s of SOURCES){ const src=DATA[s.id]; h+=`<tr><td class="src"><span class="dot" style="background:var(${s.color})"></span>${s.name}<small>${s.sub}</small></td>`;
+    for(const k of days){ const d=src?.daily?.[k]; if(!d||(d.cls==null&&d.hi==null&&d.pop==null)){h+='<td class="na">—</td>';continue;}
+      h+=`<td title="${(d.text||d.label||'').replace(/"/g,'')}"><div class="ico">${d.cls?ICON[d.cls]:''}</div><div class="lbl">${d.label||''}${d.rel?` <span class="mm">信頼度${d.rel}</span>`:''}</div>
+        <div class="tmp">${d.hi!=null?`<span class="hi">${r0(d.hi)}</span>`:'<span class="na">–</span>'}<span class="na">/</span>${d.lo!=null?`<span class="lo">${r0(d.lo)}</span>`:'<span class="na">–</span>'}</div>
+        <div class="pop">${d.pop!=null?`<b>${r0(d.pop)}%</b>`:'<span class="na">—%</span>'}${d.mm!=null?` <span class="mm">${r1(d.mm)}mm</span>`:''}</div></td>`; }
+    h+='</tr>'; }
+  // ばらつき
+  h+='<tr class="spread"><td class="src">ばらつき<small>最大−最小</small></td>';
+  for(const k of days){ const hi=[],lo=[],pop=[],cls=[]; for(const s of SOURCES){ const d=DATA[s.id]?.daily?.[k]; if(!d)continue; if(d.hi!=null)hi.push(d.hi); if(d.lo!=null)lo.push(d.lo); if(d.pop!=null)pop.push(d.pop); if(d.cls)cls.push(d.cls); }
+    const sp=a=>a.length>1?Math.round(Math.max(...a)-Math.min(...a)):null; const rainN=cls.filter(c=>RAINY.has(c)).length;
+    h+=`<td><div>最高 ${spreadChip(sp(hi),6,'℃')}</div><div>最低 ${spreadChip(sp(lo),6,'℃')}</div><div>降水 ${spreadChip(sp(pop),80,'%')}</div><div class="mm">雨 ${rainN}/${cls.length}</div></td>`; }
+  h+='</tr></tbody>'; t.innerHTML=h;
+}
+
+function renderDayBtns(days){ const el=$('#dayBtns'); el.innerHTML=''; for(const k of days){ const b=document.createElement('button'); b.textContent=`${fmtDay(k)}(${WD[wdOf(k)]})`; b.className=k===selDay?'on':''; b.onclick=()=>{selDay=k;renderDayBtns(days);renderHourly();renderCharts();}; el.appendChild(b);} }
+
+function hoursOf(){ const a=[]; for(let h=0;h<24;h+=step)a.push(h); return a; }
+function hk(h){ return `${selDay}T${String(h).padStart(2,'0')}`; }
+function jmaPopAt(h){ const src=DATA.jma; if(!src)return null; const t=new Date(`${selDay}T${String(h).padStart(2,'0')}:00:00+09:00`).getTime(); const b=src.popBlocks.find(b=>t>=b.from&&t<b.to); return b?b.pop:null; }
+
+function renderHourly(){
+  const t=$('#hourly'); const hs=hoursOf(); let h='<thead><tr><th class="src">ソース</th>';
+  for(const x of hs)h+=`<th class="h">${x}時</th>`; h+='</tr></thead><tbody>';
+  for(const s of SOURCES){ h+=`<tr><td class="src"><span class="dot" style="background:var(${s.color})"></span>${s.name}<small>${s.sub}</small></td>`;
+    for(const x of hs){ if(s.id==='jma'){ const p=jmaPopAt(x); h+=`<td>${p!=null?`<div class="pop"><b>${p}%</b></div>`:'<span class="na">—</span>'}</td>`; continue; }
+      const d=DATA[s.id]?.hourly?.[hk(x)]; if(!d||(d.t==null&&d.cls==null)){h+='<td class="na">—</td>';continue;}
+      h+=`<td title="${d.label||''}"><div class="ico">${d.cls?ICON[d.cls]:''}</div><div class="tmp">${d.t!=null?r1(d.t)+'℃':''}</div><div class="pop">${d.pop!=null?`<b>${r0(d.pop)}%</b>`:''}${d.mm!=null&&d.mm>0?` <span class="mm">${r1(d.mm)}mm</span>`:''}</div></td>`; }
+    h+='</tr>'; }
+  h+='<tr class="spread"><td class="src">ばらつき<small>最大−最小</small></td>';
+  for(const x of hs){ const ts=[],ps=[],cls=[]; for(const s of SOURCES){ if(s.id==='jma'){const p=jmaPopAt(x); if(p!=null)ps.push(p); continue;} const d=DATA[s.id]?.hourly?.[hk(x)]; if(!d)continue; if(d.t!=null)ts.push(d.t); if(d.pop!=null)ps.push(d.pop); if(d.cls)cls.push(d.cls); }
+    const sp=a=>a.length>1?Math.round((Math.max(...a)-Math.min(...a))*10)/10:null; const rainN=cls.filter(c=>RAINY.has(c)).length; const pss=sp(ps);
+    h+=`<td><div>${spreadChip(sp(ts),5,'℃')}</div><div>${spreadChip(pss!=null?Math.round(pss):null,80,'%')}</div><div class="mm">雨 ${rainN}/${cls.length}</div></td>`; }
+  h+='</tr></tbody>'; t.innerHTML=h;
+}
+
+// ===== チャート =====
+const CHART_SRC=SOURCES.filter(s=>s.hourlyTemp);
+function renderLegend(){ const el=$('#legend'); el.innerHTML=''; for(const s of CHART_SRC){ const l=document.createElement('label'); l.className=hidden.has(s.id)?'off':''; l.innerHTML=`<span class="sw" style="background:var(${s.color})"></span>${s.name}`; l.onclick=()=>{ if(hidden.has(s.id))hidden.delete(s.id); else hidden.add(s.id); renderLegend(); renderCharts(); }; el.appendChild(l);} }
+
+function series(field){ return CHART_SRC.filter(s=>!hidden.has(s.id)).map(s=>({src:s,pts:Array.from({length:24},(_,h)=>{ const d=DATA[s.id]?.hourly?.[hk(h)]; return d&&d[field]!=null?{h,v:d[field]}:null; }).filter(Boolean)})).filter(s=>s.pts.length>1); }
+
+function drawChart(svg,ser,opt){
+  const W=svg.clientWidth||800,H=svg.clientHeight||280,ml=40,mr=12,mt=12,mb=26; svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  const vals=ser.flatMap(s=>s.pts.map(p=>p.v));
+  if(!vals.length){svg.innerHTML=`<text x="${W/2}" y="${H/2}" text-anchor="middle">データなし</text>`;return;}
+  let lo,hi,stepV; if(opt.min!=null){lo=opt.min;hi=opt.max;stepV=(hi-lo)/(opt.ticks||4);}
+  else{ const mn=Math.min(...vals)-0.5,mx=Math.max(...vals)+0.5; const raw=(mx-mn)/5; stepV=[1,2,5,10].find(x=>x>=raw)||10; lo=Math.floor(mn/stepV)*stepV; hi=Math.ceil(mx/stepV)*stepV; if(hi===lo)hi=lo+stepV; }
+  const X=h=>ml+(W-ml-mr)*h/23, Y=v=>mt+(H-mt-mb)*(1-(v-lo)/(hi-lo));
+  let g='';
+  // 帯（全ソースの最小〜最大）
+  const bandTop=[],bandBot=[]; for(let h=0;h<24;h++){ const vs=ser.map(s=>s.pts.find(p=>p.h===h)?.v).filter(v=>v!=null); if(vs.length>1){bandTop.push([X(h),Y(Math.max(...vs))]);bandBot.push([X(h),Y(Math.min(...vs))]);} }
+  if(bandTop.length>1)g+=`<path class="band" d="M${bandTop.map(p=>p.join(',')).join('L')}L${bandBot.reverse().map(p=>p.join(',')).join('L')}Z"/>`;
+  for(let v=lo;v<=hi+1e-9;v+=stepV){ g+=`<line class="grid" x1="${ml}" x2="${W-mr}" y1="${Y(v)}" y2="${Y(v)}"/><text x="${ml-6}" y="${Y(v)+4}" text-anchor="end">${opt.fmt(v)}</text>`; }
+  for(let h=0;h<24;h+=3)g+=`<text x="${X(h)}" y="${H-8}" text-anchor="middle">${h}時</text>`;
+  for(const s of ser){ g+=`<path class="ln" stroke="var(${s.src.color})" d="${s.pts.map((p,i)=>(i?'L':'M')+X(p.h)+','+Y(p.v)).join('')}"/>`; if(s.pts.length<24)for(const p of s.pts)g+=`<circle cx="${X(p.h)}" cy="${Y(p.v)}" r="3" fill="var(${s.src.color})"/>`; }
+  g+=`<line id="xh" class="xh" y1="${mt}" y2="${H-mb}" x1="-10" x2="-10"/><rect x="${ml}" y="${mt}" width="${W-ml-mr}" height="${H-mt-mb}" fill="transparent" id="hit"/>`;
+  svg.innerHTML=g;
+  const tip=$('#tip'), xh=svg.querySelector('#xh'), hit=svg.querySelector('#hit');
+  hit.onmousemove=e=>{ const r=svg.getBoundingClientRect(); const h=Math.max(0,Math.min(23,Math.round(((e.clientX-r.left)*(W/r.width)-ml)/((W-ml-mr)/23)))); xh.setAttribute('x1',X(h));xh.setAttribute('x2',X(h));
+    const rows=ser.map(s=>{const p=s.pts.find(p=>p.h===h); return p?`<div class="r"><span><i style="background:var(${s.src.color})"></i>${s.src.name}</span><b>${opt.fmt(p.v)}</b></div>`:''; }).join('');
+    tip.innerHTML=`<div class="t">${fmtDay(selDay)} ${h}時</div>${rows}`; tip.style.display='block'; tip.style.left=Math.min(innerWidth-190,e.clientX+14)+'px'; tip.style.top=(e.clientY+14)+'px'; };
+  hit.onmouseleave=()=>{tip.style.display='none';xh.setAttribute('x1',-10);xh.setAttribute('x2',-10);};
+}
+function renderCharts(){ drawChart($('#chartT'),series('t'),{fmt:v=>Math.round(v*10)/10+'℃'}); drawChart($('#chartP'),series('pop'),{min:0,max:100,ticks:4,fmt:v=>Math.round(v)+'%'}); }
+
+document.querySelectorAll('[data-step]').forEach(b=>b.onclick=()=>{ step=+b.dataset.step; document.querySelectorAll('[data-step]').forEach(x=>x.classList.toggle('on',x===b)); renderHourly(); });
+$('#reload').onclick=load; addEventListener('resize',()=>{ if(Object.keys(DATA).length)renderCharts(); });
+load();
+// PWA: https で配信されている時だけ Service Worker を登録（file:// や Electron では何もしない）
+if(location.protocol==='https:'&&'serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+</script>
+</body>
+</html>
