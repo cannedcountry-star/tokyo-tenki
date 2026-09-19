@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#f0efec" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <meta name="theme-color" content="#242422" media="(prefers-color-scheme: dark)">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -40,6 +42,14 @@ button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(-
 button:hover{background:var(--surface-2)}
 button.on{background:var(--accent);border-color:var(--accent);color:#fff}
 .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
+#map{height:380px;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:var(--surface-2);z-index:0}
+@media(max-width:600px){#map{height:300px}}
+.leaflet-container{font-family:inherit;background:var(--surface-2)}
+@media (prefers-color-scheme:dark){.basemap{filter:invert(.9) hue-rotate(180deg) brightness(.95) contrast(.9)}}
+.rscale{display:flex;flex-wrap:wrap;gap:2px;margin:6px 0 0;font-size:10px;align-items:center}
+.rscale span{padding:1px 5px;border-radius:3px;font-weight:700}
+#rSlider{width:150px;vertical-align:middle}
+#rTime b{color:var(--accent)}
 .toolbar .grp{display:flex;gap:4px;flex-wrap:wrap}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:16px}
 .card h2{font-size:15px;margin:0 0 8px}
@@ -129,6 +139,11 @@ body.widget #widget{display:flex;flex-direction:column;height:100vh}
 #widget .strip .c .i{font-size:16px;line-height:1.1}
 #widget .strip .c .t{color:var(--text);font-size:11px}
 #widget .strip .c .p{color:var(--s1);font-size:9px;white-space:nowrap;letter-spacing:-.3px}
+#widget .wsel{display:flex;gap:3px;flex-wrap:wrap;margin:0 0 4px}
+#widget .wsel button{padding:1px 6px;font-size:10px;line-height:1.6}
+#widget .strip .c .rn{font-size:9px;margin-top:1px}
+.rchip{display:inline-block;padding:0 4px;border-radius:3px;font-size:10px;font-weight:700;white-space:nowrap;letter-spacing:-.2px}
+.rpeak{font-size:11px;margin-top:3px;line-height:1.4}
 #widget .wk4{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;text-align:center}
 #widget .wk4 .c{border:1px solid var(--line);border-radius:6px;padding:4px 2px;font-size:11px;line-height:1.35;color:var(--text-2)}
 #widget .wk4 .c .i{font-size:22px;line-height:1.1}
@@ -163,6 +178,19 @@ body.mobile table{font-size:12px}
   <div class="summary" id="summary"></div>
 </div>
 
+<div class="card" id="radarCard">
+  <h2>雨雲レーダー</h2>
+  <div class="toolbar">
+    <div class="grp"><button data-rs="jma" class="on">気象庁ナウキャスト</button><button data-rs="rv">RainViewer</button></div>
+    <div class="grp"><button id="rPrev">‹</button><button id="rPlayBtn">▶</button><button id="rNext">›</button></div>
+    <input type="range" id="rSlider" min="0" max="0" value="0">
+    <span class="meta" id="rTime">スクロールで読み込み</span>
+  </div>
+  <div id="map"></div>
+  <div class="rscale" id="rScale"></div>
+  <p class="mm" id="rAttr" style="margin:6px 0 0"></p>
+</div>
+
 <div class="card wk">
   <h2>週間予報</h2>
   <div class="scroll"><table id="weekly"></table></div>
@@ -186,6 +214,10 @@ body.mobile table{font-size:12px}
   <h2>降水確率の推移（選択日）<span class="mm" style="font-weight:400">　凡例は上の気温グラフと共通</span></h2>
   <svg class="chart" id="chartP"></svg>
 </div>
+<div class="card">
+  <h2>雨の強さの推移（選択日・mm/h）<span class="mm" style="font-weight:400">　10mm/h超＝土砂降り／20mm/h超＝激しい雨</span></h2>
+  <svg class="chart" id="chartR"></svg>
+</div>
 
 <div class="card note">
   <h2>ソースについて</h2>
@@ -193,6 +225,8 @@ body.mobile table{font-size:12px}
     <li><b>気象庁 公式</b>：気象庁の発表そのもの（東京地方／東京）。tenki.jp・Yahoo!天気・NHK の週間予報はこれが元。時間ごとの気温は公式JSONに無いため降水確率（6時間ごと）のみ。</li>
     <li><b>JMA MSM/GSM・ECMWF・GFS・ICON・UKMO・best_match</b>：Open-Meteo 経由の各国数値予報モデルの生出力。ウェザーニュース等の独自予報も、こうしたモデルを元に作られている。JMA モデルには降水確率が無い。</li>
     <li><b>Yr (MET Norway)</b>：ノルウェー気象研究所（ECMWF ベース）。48時間以降は6時間刻み。</li>
+    <li><b>雨雲レーダー</b>：既定は気象庁「高解像度降水ナウキャスト」（250m解像度・5分間隔・1時間先まで）。RainViewer に切り替えると過去2時間の動きを世界規模で追える（配色は The Weather Channel 方式）。数値予報モデル（上の表）より直近数時間の雨の動きに強い。</li>
+    <li><b>雨の強さ</b>：時間ごとの mm/h を気象庁「雨の強さと降り方」で色分け（3=やや強い／10=強い／20=激しい／30=非常に激しい／50=猛烈）。表示値は全モデル中の最大＝最悪ケース。降水確率が低くても mm/h が大きい時間帯は「短時間に強く降る」サイン。</li>
     <li>「ばらつき」行は各ソースの最大−最小。幅が大きいほど予報が割れている＝どのサイトを見ても信用度が低い時間帯。</li>
   </ul>
 </div>
@@ -201,8 +235,8 @@ body.mobile table{font-size:12px}
 
 <div id="widget">
   <div class="wbar"><b>東京 天気</b><span class="sp" id="wmeta"></span>
-    <button id="wreload" title="再取得">↻</button><button id="wfull" title="全体表示">⤢</button><button id="wclose" title="閉じる">✕</button></div>
-  <div class="wbody"><div id="wdays"></div><h3 id="wstripTitle"></h3><div class="strip" id="wstrip"></div><h3>4日目以降</h3><div class="wk4" id="wwk4"></div></div>
+    <button id="wradar" title="雨雲レーダー">🌧</button><button id="wreload" title="再取得">↻</button><button id="wfull" title="全体表示">⤢</button><button id="wclose" title="閉じる">✕</button></div>
+  <div class="wbody"><div id="wdays"></div><h3 id="wstripTitle"></h3><div class="wsel" id="wsel"></div><div class="strip" id="wstrip"></div><h3>4日目以降</h3><div class="wk4" id="wwk4"></div></div>
   <div class="wfoot"><span>8ソース比較</span><span id="wstatus"></span></div>
 </div>
 
@@ -230,6 +264,27 @@ const SOURCES=[
 const ICON={sun:'☀️',suncloud:'⛅',cloud:'☁️',cloudrain:'🌦️',rain:'🌧️',snow:'🌨️',thunder:'⛈️',fog:'🌫️'};
 const CLS_JA={sun:'晴れ',suncloud:'晴れ時々曇',cloud:'曇り',cloudrain:'曇り一時雨',rain:'雨',snow:'雪',thunder:'雷雨',fog:'霧'};
 const RAINY=new Set(['cloudrain','rain','snow','thunder']);
+// ===== 雨の強さ（気象庁「雨の強さと降り方」準拠 / mm per hour） =====
+const RAIN_LV=[
+  {min:0.1,ja:'弱い雨',      note:'傘があれば十分',            bg:'#a9cdea',fg:'#08243a'},
+  {min:3,  ja:'やや強い雨',  note:'ザーザー降り・地面に水たまり',bg:'#4f9ed6',fg:'#04202f'},
+  {min:10, ja:'強い雨',      note:'土砂降り・傘でも濡れる',      bg:'#2f6fb5',fg:'#fff'},
+  {min:20, ja:'激しい雨',    note:'バケツをひっくり返したよう',  bg:'#e0912c',fg:'#241300'},
+  {min:30, ja:'非常に激しい雨',note:'滝のよう・車の運転は危険',  bg:'#d9532e',fg:'#fff'},
+  {min:50, ja:'猛烈な雨',    note:'恐怖を感じる・災害級',        bg:'#a52a63',fg:'#fff'},
+];
+function rainLv(mm){ if(mm==null||mm<0.1)return null; let r=RAIN_LV[0]; for(const x of RAIN_LV) if(mm>=x.min)r=x; return r; }
+function rainChip(mm,withLabel=true){ const lv=rainLv(mm); if(!lv)return ''; return `<span class="rchip" style="background:${lv.bg};color:${lv.fg}" title="${lv.ja}：${lv.note}">${r1(mm)}mm/h${withLabel?' '+lv.ja:''}</span>`; }
+// その日の雨のピーク（全ソースの時間別 mm/h の最大＝最悪ケース）
+function dayRainPeak(k){
+  let best=null, strong=0, n=0;
+  for(const s of SOURCES){ const H=DATA[s.id]?.hourly; if(!H)continue; let mx=null;
+    for(let h=0;h<24;h++){ const d=H[`${k}T${String(h).padStart(2,'0')}`]; if(!d||d.mm==null)continue;
+      if(mx==null||d.mm>mx)mx=d.mm;
+      if(!best||d.mm>best.mm)best={mm:d.mm,h,src:s.name}; }
+    if(mx!=null){ n++; if(mx>=10)strong++; } }
+  return best&&best.mm>=0.1?Object.assign(best,{strong,n}):null;
+}
 function wmoClass(c){
   if(c==null)return null;
   if(c===0||c===1)return 'sun'; if(c===2)return 'suncloud'; if(c===3)return 'cloud';
@@ -329,7 +384,7 @@ async function fetchMET(){
 }
 
 // ===== 状態 =====
-let DATA={}, ERRORS={}, selDay=null, step=3, hidden=new Set();
+let DATA={}, ERRORS={}, selDay=null, step=3, hidden=new Set(), wDay=null;
 const $=s=>document.querySelector(s);
 const r1=v=>v==null?null:Math.round(v*10)/10;
 const r0=v=>v==null?null:Math.round(v);
@@ -356,7 +411,7 @@ function renderAll(){ const days=dayList(); if(!selDay||!days.includes(selDay))s
 const PARAMS=new URLSearchParams(location.search);
 const MOBILE=PARAMS.has('mobile');            // Android アプリ（WebView）: 簡易⇔詳細を切り替えられる
 let compact=PARAMS.has('widget')||MOBILE;     // 簡易（ウィジェット）表示か
-function setCompact(v){ compact=v; document.body.classList.toggle('widget',v); if(Object.keys(DATA).length)renderAll(); scrollTo(0,0); }
+function setCompact(v){ compact=v; document.body.classList.toggle('widget',v); if(Object.keys(DATA).length)renderAll(); if(!v&&rmap)setTimeout(()=>rmap.invalidateSize(),50); scrollTo(0,0); }
 function majority(cls){ const cnt={}; cls.forEach(c=>cnt[c]=(cnt[c]||0)+1); return Object.entries(cnt).sort((a,b)=>b[1]-a[1]||SEVERITY[b[0]]-SEVERITY[a[0]])[0]||null; }
 function rngTxt(a,f=Math.round){ if(!a.length)return '—'; const lo=f(Math.min(...a)),hi=f(Math.max(...a)); return lo===hi?`${lo}`:`${lo}〜${hi}`; }
 function renderWidget(days){
@@ -368,16 +423,23 @@ function renderWidget(days){
       <div class="big">${top?ICON[top[0]]:'—'}</div>
       <div class="inf"><div>${jma?.label?`気象庁: ${jma.label}`:top?CLS_JA[top[0]]:''}</div>
         <div><span class="hi">${rngTxt(hi)}</span><span class="na"> / </span><span class="lo">${rngTxt(lo)}</span>℃　降水 <span class="pp">${pop.length?rngTxt(pop)+'%':'—'}</span></div>
-        <div class="mm">雨予想 ${rainN}/${n}${top&&top[1]<n?`（多数派 ${CLS_JA[top[0]]} ${top[1]}/${n}）`:''}</div><div class="bar"><i style="width:${n?rainN/n*100:0}%"></i></div></div></div>`; }
+        <div class="mm">雨予想 ${rainN}/${n}${top&&top[1]<n?`（多数派 ${CLS_JA[top[0]]} ${top[1]}/${n}）`:''}</div>${(()=>{const pk=dayRainPeak(k); return pk?`<div class="mm">ピーク ${pk.h}時 ${rainChip(pk.mm)}</div>`:'';})()}<div class="bar"><i style="width:${n?rainN/n*100:0}%"></i></div></div></div>`; }
   el.innerHTML=h;
-  // 今日の3時間ごと（今の時刻以降は今日、残りが少なければ明日へ続ける）
-  const nowH=jstNow().getUTCHours(); const cells=[]; let day=days[0], hh=Math.floor(nowH/3)*3;
-  while(cells.length<8){ cells.push({day,h:hh}); hh+=3; if(hh>=24){hh=0;day=days[days.indexOf(day)+1]||day;} }
-  $('#wstripTitle').textContent=`3時間ごと（${fmtDay(cells[0].day)} ${cells[0].h}時〜）`;
-  $('#wstrip').innerHTML=cells.map((c,i)=>{ const key=`${c.day}T${String(c.h).padStart(2,'0')}`; const cls=[],ts=[],ps=[];
-    for(const s of SOURCES){ if(s.id==='jma')continue; const d=DATA[s.id]?.hourly?.[key]; if(!d)continue; if(d.cls)cls.push(d.cls); if(d.t!=null)ts.push(d.t); if(d.pop!=null)ps.push(d.pop); }
-    const top=majority(cls);
-    return `<div class="c${i===0?' now':''}">${c.h===0&&i>0?fmtDay(c.day):c.h+'時'}<div class="i">${top?ICON[top[0]]:'—'}</div><div class="t">${rngTxt(ts)}</div><div class="p">${ps.length?rngTxt(ps)+'%':''}</div></div>`; }).join('');
+  // 3時間ごと：既定は「今から」、日付ボタンで別日程に切り替え
+  const wsel=$('#wsel');
+  wsel.innerHTML=`<button class="${wDay===null?'on':''}" data-wd="">今から</button>`+days.map(k=>`<button class="${wDay===k?'on':''}" data-wd="${k}">${fmtDay(k)}(${WD[wdOf(k)]})</button>`).join('');
+  wsel.querySelectorAll('button').forEach(b=>b.onclick=()=>{ wDay=b.dataset.wd||null; renderWidget(dayList()); });
+  if(wDay&&!days.includes(wDay))wDay=null;
+  const cells=[];
+  if(wDay){ for(let h=0;h<24;h+=3)cells.push({day:wDay,h});
+    $('#wstripTitle').textContent=`3時間ごと（${fmtDay(wDay)}(${WD[wdOf(wDay)]}) 終日）`; }
+  else { const nowH=jstNow().getUTCHours(); let day=days[0], hh=Math.floor(nowH/3)*3;
+    while(cells.length<8){ cells.push({day,h:hh}); hh+=3; if(hh>=24){hh=0;day=days[days.indexOf(day)+1]||day;} }
+    $('#wstripTitle').textContent=`3時間ごと（${fmtDay(cells[0].day)} ${cells[0].h}時〜）`; }
+  $('#wstrip').innerHTML=cells.map((c,i)=>{ const key=`${c.day}T${String(c.h).padStart(2,'0')}`; const cls=[],ts=[],ps=[],ms=[];
+    for(const s of SOURCES){ if(s.id==='jma')continue; const d=DATA[s.id]?.hourly?.[key]; if(!d)continue; if(d.cls)cls.push(d.cls); if(d.t!=null)ts.push(d.t); if(d.pop!=null)ps.push(d.pop); if(d.mm!=null)ms.push(d.mm); }
+    const top=majority(cls), mx=ms.length?Math.max(...ms):null;
+    return `<div class="c${(!wDay&&i===0)?' now':''}">${c.h===0&&i>0?fmtDay(c.day):c.h+'時'}<div class="i">${top?ICON[top[0]]:'—'}</div><div class="t">${rngTxt(ts)}</div><div class="p">${ps.length?rngTxt(ps)+'%':''}</div><div class="rn">${mx!=null?rainChip(mx,false):''}</div></div>`; }).join('');
   $('#wwk4').innerHTML=days.slice(3).map(k=>{ const cls=[],hi=[],lo=[],pop=[];
     for(const s of SOURCES){ const d=DATA[s.id]?.daily?.[k]; if(!d)continue; if(d.cls)cls.push(d.cls); if(d.hi!=null)hi.push(d.hi); if(d.lo!=null)lo.push(d.lo); if(d.pop!=null)pop.push(d.pop); }
     const top=majority(cls), wd=wdOf(k), rainN=cls.filter(c=>RAINY.has(c)).length;
@@ -388,6 +450,8 @@ function renderWidget(days){
 if(MOBILE)document.body.classList.add('mobile');
 if(compact){ document.body.classList.add('widget'); document.title='東京 天気ウィジェット';
   $('#wreload').onclick=load;
+  $('#wradar').onclick=()=>{ if(MOBILE){ setCompact(false); initRadar(); setTimeout(()=>{ $('#radarCard').scrollIntoView({behavior:'smooth'}); rmap&&rmap.invalidateSize(); },300); }
+    else if(window.widgetHost)window.widgetHost.openFull(); else open(location.pathname+'#radarCard','_blank'); };
   $('#wfull').onclick=()=>{ if(window.widgetHost)window.widgetHost.openFull(); else if(MOBILE)setCompact(false); else open(location.pathname,'_blank'); };
   $('#wclose').onclick=()=>{ if(window.widgetHost)window.widgetHost.close(); else close(); };
   $('#tocompact').onclick=()=>setCompact(true);
@@ -408,7 +472,7 @@ function renderSummary(days){
     d.innerHTML=`<div class="dt">${fmtDay(k)}（<span class="${wd===0?'sun':wd===6?'sat':''}">${WD[wd]}</span>）${k===days[0]?'今日':''}</div>
       <div class="big">${top?ICON[top[0]]:'—'} <span style="font-size:13px">${top?CLS_JA[top[0]]:''} ${top?top[1]+'/'+n:''}</span></div>
       <div class="agree">雨予想 <b>${rainN}</b>/${n}</div><div class="bar"><i style="width:${n?rainN/n*100:0}%"></i></div>
-      <div class="rng">最高 ${rng(hi)}℃　最低 ${rng(lo)}℃</div><div class="rng">降水確率 ${pop.length?rng(pop)+'%':'—'}</div>`;
+      <div class="rng">最高 ${rng(hi)}℃　最低 ${rng(lo)}℃</div><div class="rng">降水確率 ${pop.length?rng(pop)+'%':'—'}</div>${(()=>{const pk=dayRainPeak(k); return pk?`<div class="rpeak">雨のピーク ${pk.h}時ごろ ${rainChip(pk.mm)}<br><span class="mm">${pk.strong}/${pk.n} モデルが10mm/h超（${pk.src} が最大）</span></div>`:'<div class="rpeak mm">まとまった雨の予想なし</div>';})()}`;
     d.onclick=()=>{selDay=k;renderDayBtns(days);renderHourly();renderCharts();document.querySelector('.hr').scrollIntoView({behavior:'smooth'});};
     el.appendChild(d); }
 }
@@ -443,12 +507,12 @@ function renderHourly(){
   for(const s of SOURCES){ h+=`<tr><td class="src"><span class="dot" style="background:var(${s.color})"></span>${s.name}<small>${s.sub}</small></td>`;
     for(const x of hs){ if(s.id==='jma'){ const p=jmaPopAt(x); h+=`<td>${p!=null?`<div class="pop"><b>${p}%</b></div>`:'<span class="na">—</span>'}</td>`; continue; }
       const d=DATA[s.id]?.hourly?.[hk(x)]; if(!d||(d.t==null&&d.cls==null)){h+='<td class="na">—</td>';continue;}
-      h+=`<td title="${d.label||''}"><div class="ico">${d.cls?ICON[d.cls]:''}</div><div class="tmp">${d.t!=null?r1(d.t)+'℃':''}</div><div class="pop">${d.pop!=null?`<b>${r0(d.pop)}%</b>`:''}${d.mm!=null&&d.mm>0?` <span class="mm">${r1(d.mm)}mm</span>`:''}</div></td>`; }
+      h+=`<td title="${d.label||''}"><div class="ico">${d.cls?ICON[d.cls]:''}</div><div class="tmp">${d.t!=null?r1(d.t)+'℃':''}</div><div class="pop">${d.pop!=null?`<b>${r0(d.pop)}%</b>`:''}</div>${d.mm!=null&&d.mm>0?`<div class="rn">${rainChip(d.mm)}</div>`:''}</td>`; }
     h+='</tr>'; }
   h+='<tr class="spread"><td class="src">ばらつき<small>最大−最小</small></td>';
-  for(const x of hs){ const ts=[],ps=[],cls=[]; for(const s of SOURCES){ if(s.id==='jma'){const p=jmaPopAt(x); if(p!=null)ps.push(p); continue;} const d=DATA[s.id]?.hourly?.[hk(x)]; if(!d)continue; if(d.t!=null)ts.push(d.t); if(d.pop!=null)ps.push(d.pop); if(d.cls)cls.push(d.cls); }
+  for(const x of hs){ const ts=[],ps=[],cls=[],ms=[]; for(const s of SOURCES){ if(s.id==='jma'){const p=jmaPopAt(x); if(p!=null)ps.push(p); continue;} const d=DATA[s.id]?.hourly?.[hk(x)]; if(!d)continue; if(d.t!=null)ts.push(d.t); if(d.pop!=null)ps.push(d.pop); if(d.cls)cls.push(d.cls); if(d.mm!=null)ms.push(d.mm); }
     const sp=a=>a.length>1?Math.round((Math.max(...a)-Math.min(...a))*10)/10:null; const rainN=cls.filter(c=>RAINY.has(c)).length; const pss=sp(ps);
-    h+=`<td><div>${spreadChip(sp(ts),5,'℃')}</div><div>${spreadChip(pss!=null?Math.round(pss):null,80,'%')}</div><div class="mm">雨 ${rainN}/${cls.length}</div></td>`; }
+    h+=`<td><div>${spreadChip(sp(ts),5,'℃')}</div><div>${spreadChip(pss!=null?Math.round(pss):null,80,'%')}</div><div class="mm">雨 ${rainN}/${cls.length}</div><div class="rn">${ms.length&&Math.max(...ms)>=0.1?'最大 '+rainChip(Math.max(...ms)):''}</div></td>`; }
   h+='</tr></tbody>'; t.innerHTML=h;
 }
 
@@ -463,7 +527,7 @@ function drawChart(svg,ser,opt){
   const vals=ser.flatMap(s=>s.pts.map(p=>p.v));
   if(!vals.length){svg.innerHTML=`<text x="${W/2}" y="${H/2}" text-anchor="middle">データなし</text>`;return;}
   let lo,hi,stepV; if(opt.min!=null){lo=opt.min;hi=opt.max;stepV=(hi-lo)/(opt.ticks||4);}
-  else{ const mn=Math.min(...vals)-0.5,mx=Math.max(...vals)+0.5; const raw=(mx-mn)/5; stepV=[1,2,5,10].find(x=>x>=raw)||10; lo=Math.floor(mn/stepV)*stepV; hi=Math.ceil(mx/stepV)*stepV; if(hi===lo)hi=lo+stepV; }
+  else{ const mn=opt.zero?0:Math.min(...vals)-0.5,mx=Math.max(...vals)+0.5; const raw=(mx-mn)/5; stepV=[1,2,5,10].find(x=>x>=raw)||10; lo=Math.floor(mn/stepV)*stepV; hi=Math.ceil(mx/stepV)*stepV; if(hi===lo)hi=lo+stepV; }
   const X=h=>ml+(W-ml-mr)*h/23, Y=v=>mt+(H-mt-mb)*(1-(v-lo)/(hi-lo));
   let g='';
   // 帯（全ソースの最小〜最大）
@@ -471,6 +535,7 @@ function drawChart(svg,ser,opt){
   if(bandTop.length>1)g+=`<path class="band" d="M${bandTop.map(p=>p.join(',')).join('L')}L${bandBot.reverse().map(p=>p.join(',')).join('L')}Z"/>`;
   for(let v=lo;v<=hi+1e-9;v+=stepV){ g+=`<line class="grid" x1="${ml}" x2="${W-mr}" y1="${Y(v)}" y2="${Y(v)}"/><text x="${ml-6}" y="${Y(v)+4}" text-anchor="end">${opt.fmt(v)}</text>`; }
   for(let h=0;h<24;h+=3)g+=`<text x="${X(h)}" y="${H-8}" text-anchor="middle">${h}時</text>`;
+  if(opt.thresholds)for(const th of opt.thresholds){ if(th.v>hi)continue; g+=`<line x1="${ml}" x2="${W-mr}" y1="${Y(th.v)}" y2="${Y(th.v)}" stroke="${th.c}" stroke-width="1" stroke-dasharray="4 3" opacity=".8"/><text x="${W-mr-2}" y="${Y(th.v)-3}" text-anchor="end" fill="${th.c}">${th.ja}</text>`; }
   for(const s of ser){ g+=`<path class="ln" stroke="var(${s.src.color})" d="${s.pts.map((p,i)=>(i?'L':'M')+X(p.h)+','+Y(p.v)).join('')}"/>`; if(s.pts.length<24)for(const p of s.pts)g+=`<circle cx="${X(p.h)}" cy="${Y(p.v)}" r="3" fill="var(${s.src.color})"/>`; }
   g+=`<line id="xh" class="xh" y1="${mt}" y2="${H-mb}" x1="-10" x2="-10"/><rect x="${ml}" y="${mt}" width="${W-ml-mr}" height="${H-mt-mb}" fill="transparent" id="hit"/>`;
   svg.innerHTML=g;
@@ -480,7 +545,73 @@ function drawChart(svg,ser,opt){
     tip.innerHTML=`<div class="t">${fmtDay(selDay)} ${h}時</div>${rows}`; tip.style.display='block'; tip.style.left=Math.min(innerWidth-190,e.clientX+14)+'px'; tip.style.top=(e.clientY+14)+'px'; };
   hit.onmouseleave=()=>{tip.style.display='none';xh.setAttribute('x1',-10);xh.setAttribute('x2',-10);};
 }
-function renderCharts(){ drawChart($('#chartT'),series('t'),{fmt:v=>Math.round(v*10)/10+'℃'}); drawChart($('#chartP'),series('pop'),{min:0,max:100,ticks:4,fmt:v=>Math.round(v)+'%'}); }
+function renderCharts(){ drawChart($('#chartT'),series('t'),{fmt:v=>Math.round(v*10)/10+'℃'}); drawChart($('#chartP'),series('pop'),{min:0,max:100,ticks:4,fmt:v=>Math.round(v)+'%'});
+  drawChart($('#chartR'),series('mm'),{zero:true,fmt:v=>Math.round(v*10)/10,thresholds:[{v:3,ja:'やや強い',c:'#4f9ed6'},{v:10,ja:'強い雨',c:'#2f6fb5'},{v:20,ja:'激しい雨',c:'#e0912c'},{v:30,ja:'非常に激しい',c:'#d9532e'}]}); }
+
+// ===== 雨雲レーダー（気象庁ナウキャスト / RainViewer） =====
+const RADAR_OPACITY=0.75;
+const JMA_SCALE=[['#a0d2ff','#06203a','1'],['#218cff','#fff','5'],['#0041ff','#fff','10'],['#fff500','#241300','20'],['#ff9900','#241300','30'],['#ff2800','#fff','50'],['#b40068','#fff','80']];
+const RV_SCALE=[['#8ce08c','#06203a','弱'],['#2fae4a','#fff',''],['#f2e33a','#241300','中'],['#ef8a2b','#241300',''],['#e0352b','#fff','強'],['#b02fa0','#fff','猛烈']];
+let rmap=null, rSrc='jma', rFrames=[], rIdx=0, rTimer=null, rLayers={}, rInit=false;
+function jmaT(s){ return new Date(Date.UTC(+s.slice(0,4),+s.slice(4,6)-1,+s.slice(6,8),+s.slice(8,10),+s.slice(10,12))); }
+function hhmm(d){ return d.toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit'}); }
+async function ensureLeaflet(){ if(window.L)return true; await new Promise(r=>{ if(document.readyState==='complete')r(); else addEventListener('load',r,{once:true}); }); return !!window.L; }
+async function initRadar(){
+  if(rInit)return; rInit=true;
+  if(!await ensureLeaflet()){ $('#rTime').innerHTML='<span class="err">地図ライブラリを読み込めませんでした（オフライン）</span>'; return; }
+  rmap=L.map('map',{attributionControl:false,minZoom:4,maxZoom:12}).setView([LAT,LON],9);
+  L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png',{maxZoom:12,className:'basemap'}).addTo(rmap);
+  L.circleMarker([LAT,LON],{radius:5,color:'#d9532e',weight:2,fillColor:'#d9532e',fillOpacity:.9}).addTo(rmap);
+  await loadRadar();
+}
+function renderScale(){
+  const sc=rSrc==='jma'?JMA_SCALE:RV_SCALE;
+  $('#rScale').innerHTML=(rSrc==='jma'?'<span style="background:none;padding:0">mm/h</span>':'<span style="background:none;padding:0">雨の強さ</span>')
+    +sc.map(([bg,fg,lb])=>`<span style="background:${bg};color:${fg}">${lb||'　'}</span>`).join('');
+}
+async function loadRadar(){
+  radarStop(); for(const k in rLayers)rmap.removeLayer(rLayers[k]); rLayers={}; rFrames=[];
+  $('#rTime').textContent='レーダー取得中…'; renderScale();
+  try{
+    if(rSrc==='jma'){
+      const [n1,n2]=await Promise.all(['N1','N2'].map(n=>fetch(`https://www.jma.go.jp/bosai/jmatile/data/nowc/targetTimes_${n}.json`,{cache:'no-store'}).then(r=>r.json())));
+      const mk=(t,fc)=>({t:jmaT(t.validtime),fc,url:`https://www.jma.go.jp/bosai/jmatile/data/nowc/${t.basetime}/none/${t.validtime}/surf/hrpns/{z}/{x}/{y}.png`});
+      const past=n1.slice(0,13).map(t=>mk(t,false)).reverse();
+      const base=n1[0].basetime;
+      const fut=n2.filter(t=>t.basetime===base).sort((a,b)=>a.validtime.localeCompare(b.validtime)).map(t=>mk(t,true));
+      rFrames=[...past,...fut];
+      $('#rAttr').textContent='高解像度降水ナウキャスト：5分間隔・過去1時間＋1時間先まで予測／気象データ © 気象庁・地図 © 国土地理院';
+    }else{
+      const j=await fetch('https://api.rainviewer.com/public/weather-maps.json',{cache:'no-store'}).then(r=>r.json());
+      const size=devicePixelRatio>=2?512:256;
+      rFrames=[...(j.radar.past||[]),...(j.radar.nowcast||[])].map(f=>({t:new Date(f.time*1000),fc:f.time>j.generated,url:`${j.host}${f.path}/${size}/{z}/{x}/{y}/4/1_1.png`}));
+      $('#rAttr').textContent='RainViewer：10分間隔・過去2時間＋30分先まで予測（配色は The Weather Channel 方式）／© RainViewer・地図 © 国土地理院';
+    }
+    if(!rFrames.length)throw new Error('フレームが空');
+    $('#rSlider').max=rFrames.length-1;
+    const fi=rFrames.findIndex(f=>f.fc);
+    showFrame(fi>0?fi-1:rFrames.length-1);
+  }catch(e){ $('#rTime').innerHTML='<span class="err">レーダー取得失敗: '+e.message+'</span>'; }
+}
+function frameLayer(i){ if(rLayers[i])return rLayers[i];
+  const l=L.tileLayer(rFrames[i].url,{opacity:0,maxZoom:12,zIndex:10,className:'radar'}); l.addTo(rmap); rLayers[i]=l; return l; }
+function showFrame(i){
+  if(!rFrames.length)return; rIdx=(i+rFrames.length)%rFrames.length;
+  frameLayer(rIdx); if(rFrames[rIdx+1])frameLayer(rIdx+1);
+  for(const k in rLayers)rLayers[k].setOpacity(+k===rIdx?RADAR_OPACITY:0);
+  const f=rFrames[rIdx];
+  $('#rTime').innerHTML=`${hhmm(f.t)} <b>${f.fc?'予測':'実況'}</b> <span class="mm">${rIdx+1}/${rFrames.length}</span>`;
+  $('#rSlider').value=rIdx;
+}
+function radarPlay(){ if(rTimer)return; rTimer=setInterval(()=>showFrame(rIdx+1),600); $('#rPlayBtn').textContent='⏸'; }
+function radarStop(){ if(rTimer)clearInterval(rTimer); rTimer=null; const b=$('#rPlayBtn'); if(b)b.textContent='▶'; }
+$('#rPlayBtn').onclick=()=>{ rTimer?radarStop():radarPlay(); };
+$('#rPrev').onclick=()=>{ radarStop(); showFrame(rIdx-1); };
+$('#rNext').onclick=()=>{ radarStop(); showFrame(rIdx+1); };
+$('#rSlider').oninput=e=>{ radarStop(); showFrame(+e.target.value); };
+document.querySelectorAll('[data-rs]').forEach(b=>b.onclick=()=>{ rSrc=b.dataset.rs; document.querySelectorAll('[data-rs]').forEach(x=>x.classList.toggle('on',x===b)); if(rmap)loadRadar(); else initRadar(); });
+// 画面に入ったときだけ読み込む（簡易表示では非表示なので通信しない）
+if('IntersectionObserver' in window){ new IntersectionObserver((es,o)=>{ if(es.some(e=>e.isIntersecting)){ o.disconnect(); initRadar(); } }).observe($('#radarCard')); }
 
 document.querySelectorAll('[data-step]').forEach(b=>b.onclick=()=>{ step=+b.dataset.step; document.querySelectorAll('[data-step]').forEach(x=>x.classList.toggle('on',x===b)); renderHourly(); });
 $('#reload').onclick=load; addEventListener('resize',()=>{ if(Object.keys(DATA).length)renderCharts(); });
